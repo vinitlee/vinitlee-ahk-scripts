@@ -4,12 +4,13 @@ global session := Map(
     "active", false,
     "index", 0,
     "hwnds", [],
-    "winDown", false
+    "winDown", false,
+    "lastIndex", 0
 )
 
 ; === Main Triggers ===
-#Tab:: StartCycle(1)
-#+Tab:: StartCycle(-1)
+#`:: StartCycle(1)
+#+`:: StartCycle(-1)
 
 ; Detect Win key release to end session
 ~*LWin up:: EndCycle()
@@ -32,6 +33,7 @@ StartCycle(direction := 1) {
         session["winDown"] := true
     }
 
+    session["lastIndex"] := session["index"]
     session["index"] += direction
 
     listLen := session["hwnds"].Length
@@ -53,6 +55,7 @@ EndCycle() {
         session["index"] := 0
         session["hwnds"] := []
         session["winDown"] := false
+        session["lastIndex"] := 0
     }
 }
 
@@ -68,23 +71,21 @@ ActivateFromSession() {
 
     ; Find current topmost window (before we activate new one)
     currentTop := WinGetList()[1]
-    if currentTop == target {
-        WinActivate("ahk_id " target)  ; still bring to front to ensure focus
-        return
-    }
-
-    ; Move the window that was frontmost before back to its old Z-order position
-    originalPos := 0
-    for i, hwnd in hwnds {
-        if hwnd == currentTop {
-            originalPos := i
-            break
+    if WinExist("ahk_id " currentTop) {
+        if currentTop == target {
+            WinActivate("ahk_id " target)  ; still bring to front to ensure focus
+            return
         }
     }
+
+    originalPos := session["lastIndex"]
     if originalPos {
-        ; Insert old front just before the target's position in the frozen list
-        ; (This approximates "putting it back" without reordering the full list)
-        refHwnd := hwnds[originalPos + 1]  ; hwnd to insert *behind*
+        ; refPos := Mod(originalPos - 1 + session["hwnds"].Length, session["hwnds"].Length)
+        if session["index"] > session["lastIndex"]  ; forward
+            refPos := Mod(originalPos - 1 + hwnds.Length, hwnds.Length)
+        else  ; backward
+            refPos := Mod(originalPos + 1, hwnds.Length)
+        refHwnd := hwnds[refPos + 1]  ; hwnd to insert *behind*
         if refHwnd && refHwnd != target
             SetWindowBehindRelative(currentTop, refHwnd)
         else
@@ -119,7 +120,7 @@ LogWindowList(hwnds, label := "Window List") {
         }
     }
     ; Print to console or MsgBox
-    OutputDebug(output)  ; ⬅️ For DebugView or IDE
+    ; OutputDebug(output)  ; ⬅️ For DebugView or IDE
     MsgBox(output)       ; ⬅️ For visual popup
 }
 
