@@ -4,3 +4,4 @@
 
 #Include "CloseWindow.ahk"
 #Include "AlternateTab2.ahk"
+#Include "SwitchDesktopWithWindow.ahk"
