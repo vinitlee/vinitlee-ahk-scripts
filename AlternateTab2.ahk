@@ -59,28 +59,49 @@ EndCycle() {
 ActivateFromSession() {
     global session
 
-    targetIndex := session["index"]
     hwnds := session["hwnds"]
-    target := hwnds[targetIndex + 1]  ; AHK arrays are 1-based
+    targetIndex := session["index"]
+    target := hwnds[targetIndex + 1]
 
     if !WinExist("ahk_id " target)
         return
 
-    ; Bring target to top, then restore others in original order
-    ; Put target last so it ends on top
-    otherHwnds := hwnds.Clone()
-    otherHwnds.RemoveAt(targetIndex + 1)
-
-    ; Restore original Z-order for all others
-    for hwnd in otherHwnds {
-        SetWindowBehind(hwnd)
+    ; Find current topmost window (before we activate new one)
+    currentTop := WinGetList()[1]
+    if currentTop == target {
+        WinActivate("ahk_id " target)  ; still bring to front to ensure focus
+        return
     }
 
-    ; Bring selected window to front
+    ; Move the window that was frontmost before back to its old Z-order position
+    originalPos := 0
+    for i, hwnd in hwnds {
+        if hwnd == currentTop {
+            originalPos := i
+            break
+        }
+    }
+    if originalPos {
+        ; Insert old front just before the target's position in the frozen list
+        ; (This approximates "putting it back" without reordering the full list)
+        refHwnd := hwnds[originalPos + 1]  ; hwnd to insert *behind*
+        if refHwnd && refHwnd != target
+            SetWindowBehindRelative(currentTop, refHwnd)
+        else
+            SetWindowBehind(currentTop)
+    }
+
+    ; Bring the new window to front
     WinActivate("ahk_id " target)
 }
 
 ; === Helpers ===
+
+SetWindowBehindRelative(hwndToMove, insertBehindHwnd) {
+    ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE = 0x13
+    DllCall("SetWindowPos", "ptr", hwndToMove, "ptr", insertBehindHwnd, "int", 0, "int", 0, "int", 0, "int", 0, "uint",
+        0x13)
+}
 
 LogWindowList(hwnds, label := "Window List") {
     output := label "`n----------------------`n"
@@ -120,6 +141,8 @@ FilterWindowList(&hwnds) {
             if class = "Shell_TrayWnd"
                 continue
             if class = "Progman"
+                continue
+            if class = "CASCADIA_HOSTING_WINDOW_CLASS"
                 continue
             if proc = "Adobe Desktop Service.exe"
                 continue
