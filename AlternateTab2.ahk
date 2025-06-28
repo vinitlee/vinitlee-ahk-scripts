@@ -131,26 +131,27 @@ FilterWindowList(&hwnds) {
             class := WinGetClass("ahk_id " hwnd)
             proc := ProcessGetName(WinGetPID("ahk_id " hwnd))
             style := WinGetStyle("ahk_id " hwnd)
-            visible := (style & 0x10000000)
+            exstyle := DllCall("GetWindowLongPtr", "ptr", hwnd, "int", -20, "ptr")  ; GWL_EXSTYLE = -20
+            hasOwner := DllCall("GetWindow", "ptr", hwnd, "uint", 4, "ptr") != 0  ; GW_OWNER = 4
 
-            ; Filter logic — customize here
-            if !visible
+            ; 1. Must be visible
+            if !(style & 0x10000000)  ; WS_VISIBLE
                 continue
-            if class = "InternetExplorer_hidden"
+
+            ; 2. Must not be tool window
+            if (exstyle & 0x80)  ; WS_EX_TOOLWINDOW
                 continue
-            if class = "Shell_TrayWnd"
+
+            ; 3. Must be top-level (not owned popup)
+            if hasOwner
                 continue
-            if class = "Progman"
-                continue
-            if class = "CASCADIA_HOSTING_WINDOW_CLASS"
-                continue
-            if proc = "Adobe Desktop Service.exe"
-                continue
-            ; Optional: skip untitled or 0x0 windows
-            ; if !title
+
+            ; 4. Optional: must have a title
+            ; if !title or Trim(title) = ""
             ;     continue
-            ; WinGetPos(&x, &y, &w, &h, "ahk_id " hwnd)
-            ; if w = 0 and h = 0
+
+            ; 5. Optional: must be app window
+            ; if !(exstyle & 0x40000)  ; WS_EX_APPWINDOW
             ;     continue
 
             newList.Push(hwnd)
