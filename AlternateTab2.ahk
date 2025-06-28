@@ -57,6 +57,7 @@ EndCycle() {
         session["winDown"] := false
         session["lastIndex"] := 0
     }
+    HideHighlight()
 }
 
 ActivateFromSession() {
@@ -94,6 +95,7 @@ ActivateFromSession() {
 
     ; Bring the new window to front
     WinActivate("ahk_id " target)
+    ; ShowHighlight(target)
 }
 
 ; === Helpers ===
@@ -195,4 +197,83 @@ GetRealWindows() {
 SetWindowBehind(hwnd) {
     ; HWND_BOTTOM = 1, SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE = 0x0013
     DllCall("SetWindowPos", "ptr", hwnd, "ptr", 1, "int", 0, "int", 0, "int", 0, "int", 0, "uint", 0x0013)
+}
+
+; global highlightGui := CreateHighlightGui()
+
+; CreateHighlightGui() {
+;     guiRect := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20 +E0x80020 +LastFound", "Highlight")
+;     guiRect.BackColor := "Red"
+;     WinSetTransparent(150, guiRect.Hwnd)
+;     return guiRect
+; }
+
+; ShowHighlight(hwnd) {
+;     global highlightGui
+
+;     if !WinExist("ahk_id " hwnd)
+;         return
+
+;     WinGetPos(&x, &y, &w, &h, "ahk_id " hwnd)
+;     border := 10
+
+;     ; Resize and move GUI
+;     highlightGui.Move(x - border, y - border, w + 2 * border, h + 2 * border)
+;     highlightGui.Show("NA")
+; }
+
+; HideHighlight() {
+;     global highlightGui
+;     try highlightGui.Hide()
+; }
+
+global highlightGui := CreateBorderGui()
+
+CreateBorderGui() {
+    newGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20 +E0x80020 +E0x80000 +LastFound", "Highlight")
+    newGui.BackColor := "Fuchsia"  ; placeholder background
+    newGui.Opt("+AlwaysOnTop")  ; ensure topmost
+    ; WinSetTransparent(50, newGui.Hwnd)  ; nearly invisible base
+    hwnd := newGui.Hwnd
+    DllCall("SetLayeredWindowAttributes", "ptr", hwnd, "uint", 0xFF00FF, "uint", 0, "uint", 0x1)  ; 0xFF00FF = Fuchsia
+
+    ; Create red border with 4 sides
+    newGui.MarginX := 0
+    newGui.MarginY := 0
+    newGui.SetFont("W0")  ; remove any default padding
+
+    newGui.Add("Text", "x0 y0 w0 h0 BackgroundRed vTopBorder")
+    newGui.Add("Text", "x0 y0 w0 h0 BackgroundRed vLeftBorder")
+    newGui.Add("Text", "x0 y0 w0 h0 BackgroundRed vRightBorder")
+    newGui.Add("Text", "x0 y0 w0 h0 BackgroundRed vBottomBorder")
+
+    return newGui
+}
+
+ShowHighlight(hwnd) {
+    global highlightGui
+
+    if !WinExist("ahk_id " hwnd)
+        return
+
+    WinGetPos(&x, &y, &w, &h, "ahk_id " hwnd)
+    border := 3  ; thickness of the border lines
+
+    highlightGui.Move(x - border, y - border, w + border * 2, h + border * 2)
+
+    ; Resize each border
+    highlightGui["TopBorder"].Move(0, 0, w + border * 2, border)
+    highlightGui["LeftBorder"].Move(0, 0, border, h + border * 2)
+    highlightGui["RightBorder"].Move(w + border, 0, border, h + border * 2)
+    highlightGui["BottomBorder"].Move(0, h + border, w + border * 2, border)
+
+    ; Reassert AlwaysOnTop in case another window fought us
+    WinSetAlwaysOnTop(true, highlightGui.Hwnd)
+
+    highlightGui.Show("NA")
+}
+
+HideHighlight() {
+    global highlightGui
+    try highlightGui.Hide()
 }
